@@ -53,7 +53,7 @@ const CreateProject = () => {
   const handleFinalSubmit = () => {
     const fullProject = { ...project, milestones, tasks };
     const token = Cookies.get('token');
-
+    console.log("the full data is ",fullProject)
     fetch('http://localhost:3000/projects', {
       method: 'POST',
       headers: {

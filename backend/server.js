@@ -9,12 +9,14 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const app = express();
+const dotenv = require("dotenv")
 const { sendOTP, verifyOtp, resetPassword } = require('./controllers/emailController');
 const port = 3000;
-
+const db = require("./config/db")
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+dotenv.config();
 app.use(
   cors({
     origin: "http://localhost:3001", // Update with your frontend URL
@@ -24,22 +26,7 @@ app.use(
 );
 app.use(cookieParser());
 
-// Establish connectivity with database
-const db = mysql.createConnection({
-  host: "localhost",
-  port: 3306,
-  user: "root",
-  password: "",
-  database: "projecttracker",
-});
 
-db.connect((err) => {
-  if (err) {
-    console.error("Error connecting to the database:", err);
-    return;
-  }
-  console.log("Connected to the database");
-});
 
 const secretKey = "your_secret_key";
 
@@ -64,66 +51,66 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Login endpoint
-app.post("/loginMe", (req, res) => {
-  const { username, password } = req.body;
-  const hashedPassword = md5(password);
+// // Login endpoint
+// app.post("/loginMe", (req, res) => {
+//   const { username, password } = req.body;
+//   const hashedPassword = md5(password);
 
-  const query = "SELECT * FROM users WHERE username = ? AND password = ?";
-  db.query(query, [username, hashedPassword], (err, results) => {
-    if (err) {
-      res.status(500).json({ message: "Internal server error" });
-      return;
-    }
+//   const query = "SELECT * FROM users WHERE username = ? AND password = ?";
+//   db.query(query, [username, hashedPassword], (err, results) => {
+//     if (err) {
+//       res.status(500).json({ message: "Internal server error" });
+//       return;
+//     }
 
-    if (results.length === 0) {
-      res.status(401).json({ message: "Invalid username or password" });
-      return;
-    }
+//     if (results.length === 0) {
+//       res.status(401).json({ message: "Invalid username or password" });
+//       return;
+//     }
 
-    const user = results[0];
-    const token = jwt.sign(
-      {
-        id: user.UserID,
-        username: user.Username,
-        name: user.Name,
-        usertype: user.UserType,
-        useremail: user.Email,
-      },
-      secretKey,
-      { expiresIn: "12h" }
-    );
-    res.status(200).json({ token });
-  });
-});
+//     const user = results[0];
+//     const token = jwt.sign(
+//       {
+//         id: user.UserID,
+//         username: user.Username,
+//         name: user.Name,
+//         usertype: user.UserType,
+//         useremail: user.Email,
+//       },
+//       secretKey,
+//       { expiresIn: "12h" }
+//     );
+//     res.status(200).json({ token });
+//   });
+// });
 
-// Add new user
-app.post("/users", (req, res) => {
-  const { username, name, email, password, usertype } = req.body;
+// // Add Register user
+// app.post("/users", (req, res) => {
+//   const { username, name, email, password, usertype } = req.body;
 
-  if (!username || !name || !email || !password || !usertype) {
-    res
-      .status(400)
-      .send("Username, name, email, password & usertype all are required!");
-    return;
-  }
+//   if (!username || !name || !email || !password || !usertype) {
+//     res
+//       .status(400)
+//       .send("Username, name, email, password & usertype all are required!");
+//     return;
+//   }
 
-  const hashedPassword = md5(password); // Hash the password using md5
+//   const hashedPassword = md5(password); // Hash the password using md5
 
-  const query =
-    "INSERT INTO users (userid, username, name, email, password, usertype) VALUES (NULL, ?, ?, ?, ?, ?)";
-  db.query(
-    query,
-    [username, name, email, hashedPassword, usertype],
-    (err, results) => {
-      if (err) {
-        res.status(500).send(err);
-        return;
-      }
-      res.status(201).json({ id: results.insertId, name, email });
-    }
-  );
-});
+//   const query =
+//     "INSERT INTO users (userid, username, name, email, password, usertype) VALUES (NULL, ?, ?, ?, ?, ?)";
+//   db.query(
+//     query,
+//     [username, name, email, hashedPassword, usertype],
+//     (err, results) => {
+//       if (err) {
+//         res.status(500).send(err);
+//         return;
+//       }
+//       res.status(201).json({ id: results.insertId, name, email });
+//     }
+//   );
+// });
 
 // Get all users (protected route)
 app.get("/users", verifyToken, (req, res) => {
@@ -136,30 +123,6 @@ app.get("/users", verifyToken, (req, res) => {
   });
 });
 
-// Update user (protected route)
-// app.put("/users/:userid", verifyToken, (req, res) => {
-//   const UserID = req.params.userid;
-//   const { username, email, name } = req.body;
-
-//   // Validate required fields
-//   if (!username || !email || !name) {
-//     return res.status(400).send("Username, email, and name are all required!");
-//   }
-
-//   const query = "UPDATE users SET username=?, email=?, name=? WHERE userid=?";
-//   db.query(query, [username, email, name, UserID], (err, results) => {
-//     if (err) {
-//       return res.status(500).send(err);
-//     }
-
-//     // Check if any rows were affected (i.e., if the user was found and updated)
-//     if (results.affectedRows === 0) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     res.json({ message: "User updated successfully" });
-//   });
-// });
 
 app.put('/users/:userid', verifyToken, (req, res) => {
   const UserID = req.params.userid;
@@ -828,417 +791,6 @@ app.get('/project/:projectname', verifyToken, (req, res) => {
   });
 });
 
-// app.post('/projects/new', (req, res) => {
-//   const { projectID, milestones } = req.body;
-//   console.log('Received request to update project:', { projectID, milestones });
-
-//   db.beginTransaction((err) => {
-//     if (err) {
-//       console.error('Error starting transaction:', err);
-//       return res.status(500).json({ error: 'Error starting transaction' });
-//     }
-//     console.log('Transaction started');
-
-//     // Fetch existing milestones
-//     const getExistingMilestonesQuery = `
-//       SELECT milestoneid, milestonename, description, startdate, enddate 
-//       FROM milestones 
-//       WHERE projectid = ?`;
-    
-//     db.query(getExistingMilestonesQuery, [projectID], (err, existingMilestones) => {
-//       if (err) {
-//         console.error('Error fetching existing milestones:', err);
-//         return db.rollback(() => {
-//           res.status(500).json({ error: 'Error fetching existing milestones' });
-//         });
-//       }
-//       console.log('Fetched existing milestones:', existingMilestones);
-
-//       if (!Array.isArray(existingMilestones)) {
-//         return db.rollback(() => {
-//           res.status(500).json({ error: 'Expected an array of existing milestones' });
-//         });
-//       }
-
-//       const existingMilestoneMap = new Map(existingMilestones.map(m => [m.milestoneid, m]));
-//       const newMilestoneIDs = new Set();
-
-//       const processMilestone = (milestone, callback) => {
-//         console.log('MYMILE :',milestone);
-//         if (milestone.milestoneid && milestone.milestoneid !== 'New') {
-//           // Update existing milestone
-//           newMilestoneIDs.add(milestone.milestoneid);
-//           console.log('Updating milestone:', milestone.milestoneid);
-//           db.query(
-//             `UPDATE milestones SET milestonename = ?, description = ?, startdate = ?, enddate = ? WHERE milestoneid = ?`,
-//             [milestone.name, milestone.description, milestone.startDate, milestone.endDate, milestone.milestoneid],
-//             (err) => {
-//               if (err) return callback(err);
-//               updateTasks(milestone.milestoneid, milestone.tasks, callback);
-//             }
-//           );
-//         } else {
-//           // Insert new milestone
-//           console.log('Inserting new milestone:', milestone.name);
-//           db.query(
-//             `INSERT INTO milestones (projectid, seq, milestonename, description, startdate, enddate, status) VALUES (?, NULL, ?, ?, ?, ?, 'Not Started')`,
-//             [projectID, milestone.name, milestone.description, milestone.startDate, milestone.endDate],
-//             (err, result) => {
-//               if (err) return callback(err);
-//               const milestoneId = result.insertId;
-//               newMilestoneIDs.add(milestoneId);
-//               insertTasks(milestoneId, milestone.tasks, callback);
-//             }
-//           );
-//         }
-//       };
-
-//       // Process each milestone
-//       let completedMilestones = 0;
-//       milestones.forEach(milestone => {
-//         processMilestone(milestone, (err) => {
-//           if (err) {
-//             console.error('Error processing milestone:', err);
-//             return db.rollback(() => {
-//               res.status(500).json({ error: 'Error processing milestones' });
-//             });
-//           }
-//           completedMilestones++;
-//           if (completedMilestones === milestones.length) {
-//             // After processing all milestones
-//             const milestonesToDelete = Array.from(existingMilestoneMap.keys()).filter(id => !newMilestoneIDs.has(id));
-//             if (milestonesToDelete.length > 0) {
-//               console.log('Deleting milestones:', milestonesToDelete);
-//               db.query(`DELETE FROM milestones WHERE milestoneid IN (?)`, [milestonesToDelete], (err) => {
-//                 if (err) {
-//                   console.error('Error deleting milestones:', err);
-//                   return db.rollback(() => {
-//                     res.status(500).json({ error: 'Error deleting milestones' });
-//                   });
-//                 }
-//                 db.commit((err) => {
-//                   if (err) {
-//                     console.error('Error committing transaction:', err);
-//                     return db.rollback(() => {
-//                       res.status(500).json({ error: 'Error committing transaction' });
-//                     });
-//                   }
-//                   res.status(201).json({ message: 'Milestones and tasks added/updated successfully' });
-//                 });
-//               });
-//             } else {
-//               db.commit((err) => {
-//                 if (err) {
-//                   console.error('Error committing transaction:', err);
-//                   return db.rollback(() => {
-//                     res.status(500).json({ error: 'Error committing transaction' });
-//                   });
-//                 }
-//                 res.status(201).json({ message: 'Milestones and tasks added/updated successfully' });
-//               });
-//             }
-//           }
-//         });
-//       });
-//     });
-//   });
-
-//   function updateTasks(milestoneId, tasks, callback) {
-//     db.query(
-//       `SELECT taskid, taskname, description, assignedto, startdate, enddate FROM tasks WHERE milestoneid = ?`,
-//       [milestoneId],
-//       (err, existingTasks) => {
-//         if (err) return callback(err);
-//         console.log('Fetched existing tasks for milestone', milestoneId, ':', existingTasks);
-
-//         if (!Array.isArray(existingTasks)) {
-//           return callback(new Error('Expected an array of existing tasks'));
-//         }
-
-//         const existingTaskMap = new Map(existingTasks.map(t => [t.taskid, t]));
-//         const newTaskIDs = new Set();
-
-//         const processTask = (task, taskCallback) => {
-//           console.log('MYTASK: ',task);
-//           getIdByEmail(task.assignedTo, (err, assignedUserId) => {
-//             if (err) return taskCallback(err);
-//             if (task.taskid && task.taskid !== 'New') {
-//               // Update existing task
-//               newTaskIDs.add(task.taskid);
-//               console.log('Updating task:', task.taskid);
-//               db.query(
-//                 `UPDATE tasks SET taskname = ?, description = ?, assignedto = ?, startdate = ?, enddate = ? WHERE taskid = ?`,
-//                 [task.name, task.description, assignedUserId, task.startDate, task.endDate, task.taskid],
-//                 taskCallback
-//               );
-//             } else {
-//               // Insert new task
-//               console.log('Inserting new task:', task.name);
-//               db.query(
-//                 `INSERT INTO tasks (milestoneid, seq, taskname, description, assignedto, startdate, enddate, status) VALUES (?, NULL, ?, ?, ?, ?, ?, 'Not Started')`,
-//                 [milestoneId, task.name, task.description, assignedUserId, task.startDate, task.endDate],
-//                 taskCallback
-//               );
-//             }
-//           });
-//         };
-
-//         // Process each task
-//         let completedTasks = 0;
-//         tasks.forEach(task => {
-//           processTask(task, (err) => {
-//             if (err) return callback(err);
-//             completedTasks++;
-//             if (completedTasks === tasks.length) {
-//               const tasksToDelete = Array.from(existingTaskMap.keys()).filter(id => !newTaskIDs.has(id));
-//               if (tasksToDelete.length > 0) {
-//                 console.log('Deleting tasks:', tasksToDelete);
-//                 db.query(`DELETE FROM tasks WHERE taskid IN (?)`, [tasksToDelete], callback);
-//               } else {
-//                 callback();
-//               }
-//             }
-//           });
-//         });
-//       }
-//     );
-//   }
-
-//   function insertTasks(milestoneId, tasks, callback) {
-//     let completedTasks = 0;
-//     tasks.forEach(task => {
-//       getIdByEmail(task.assignedTo, (err, assignedUserId) => {
-//         if (err) return callback(err);
-//         console.log('Inserting task:', task.name, 'into milestone:', milestoneId);
-//         db.query(
-//           `INSERT INTO tasks (milestoneid, seq, taskname, description, assignedto, startdate, enddate, status) VALUES (?, NULL, ?, ?, ?, ?, ?, 'Not Started')`,
-//           [milestoneId, task.name, task.description, assignedUserId, task.startDate, task.endDate],
-//           (err) => {
-//             if (err) return callback(err);
-//             completedTasks++;
-//             if (completedTasks === tasks.length) {
-//               callback();
-//             }
-//           }
-//         );
-//       });
-//     });
-//   }
-
-//   function getIdByEmail(email, callback) {
-//     db.query(`SELECT userid FROM users WHERE email = ?`, [email], (err, result) => {
-//       if (err) return callback(err);
-//       if (result.length === 0) return callback(new Error('User not found'));
-//       callback(null, result[0].userid);
-//     });
-//   }
-// });
-
-// app.post('/projects/new', (req, res) => {
-//   const { projectID, milestones } = req.body;
-//   console.log('Received request to update project:', { projectID, milestones });
-
-//   db.beginTransaction((err) => {
-//     if (err) {
-//       console.error('Error starting transaction:', err);
-//       return res.status(500).json({ error: 'Error starting transaction' });
-//     }
-//     console.log('Transaction started');
-
-//     // Fetch existing milestones
-//     const getExistingMilestonesQuery = `
-//       SELECT milestoneid, milestonename, description, startdate, enddate 
-//       FROM milestones 
-//       WHERE projectid = ?`;
-    
-//     db.query(getExistingMilestonesQuery, [projectID], (err, existingMilestones) => {
-//       if (err) {
-//         console.error('Error fetching existing milestones:', err);
-//         return db.rollback(() => {
-//           res.status(500).json({ error: 'Error fetching existing milestones' });
-//         });
-//       }
-//       console.log('Fetched existing milestones:', existingMilestones);
-
-//       if (!Array.isArray(existingMilestones)) {
-//         return db.rollback(() => {
-//           res.status(500).json({ error: 'Expected an array of existing milestones' });
-//         });
-//       }
-
-//       const existingMilestoneMap = new Map(existingMilestones.map(m => [m.milestoneid, m]));
-//       const newMilestoneIDs = new Set();
-
-//       const processMilestone = (milestone, callback) => {
-//         console.log('MYMILE :',milestone);
-//         if (milestone.milestoneid && milestone.milestoneid !== 'New') {
-//           // Update existing milestone
-//           newMilestoneIDs.add(milestone.milestoneid);
-//           console.log('Updating milestone:', milestone.milestoneid);
-//           db.query(
-//             `UPDATE milestones SET milestonename = ?, description = ?, startdate = ?, enddate = ? WHERE milestoneid = ?`,
-//             [milestone.name, milestone.description, milestone.startDate, milestone.endDate, milestone.milestoneid],
-//             (err) => {
-//               if (err) return callback(err);
-//               updateTasks(milestone.milestoneid, milestone.tasks, callback);
-//             }
-//           );
-//         } else {
-//           // Insert new milestone
-//           console.log('Inserting new milestone:', milestone.name);
-//           db.query(
-//             `INSERT INTO milestones (projectid, seq, milestonename, description, startdate, enddate, status) VALUES (?, NULL, ?, ?, ?, ?, 'Not Started')`,
-//             [projectID, milestone.name, milestone.description, milestone.startDate, milestone.endDate],
-//             (err, result) => {
-//               if (err) return callback(err);
-//               const milestoneId = result.insertId;
-//               newMilestoneIDs.add(milestoneId);
-//               insertTasks(milestoneId, milestone.tasks, callback);
-//             }
-//           );
-//         }
-//       };
-
-//       // Process each milestone
-//       let completedMilestones = 0;
-//       milestones.forEach(milestone => {
-//         processMilestone(milestone, (err) => {
-//           if (err) {
-//             console.error('Error processing milestone:', err);
-//             return db.rollback(() => {
-//               res.status(500).json({ error: 'Error processing milestones' });
-//             });
-//           }
-//           completedMilestones++;
-//           if (completedMilestones === milestones.length) {
-//             // After processing all milestones
-//             const milestonesToDelete = Array.from(existingMilestoneMap.keys()).filter(id => !newMilestoneIDs.has(id));
-//             if (milestonesToDelete.length > 0) {
-//               console.log('Deleting milestones:', milestonesToDelete);
-//               db.query(`DELETE FROM milestones WHERE milestoneid IN (?)`, [milestonesToDelete], (err) => {
-//                 if (err) {
-//                   console.error('Error deleting milestones:', err);
-//                   return db.rollback(() => {
-//                     res.status(500).json({ error: 'Error deleting milestones' });
-//                   });
-//                 }
-//                 db.commit((err) => {
-//                   if (err) {
-//                     console.error('Error committing transaction:', err);
-//                     return db.rollback(() => {
-//                       res.status(500).json({ error: 'Error committing transaction' });
-//                     });
-//                   }
-//                   res.status(201).json({ message: 'Milestones and tasks added/updated successfully' });
-//                 });
-//               });
-//             } else {
-//               db.commit((err) => {
-//                 if (err) {
-//                   console.error('Error committing transaction:', err);
-//                   return db.rollback(() => {
-//                     res.status(500).json({ error: 'Error committing transaction' });
-//                   });
-//                 }
-//                 res.status(201).json({ message: 'Milestones and tasks added/updated successfully' });
-//               });
-//             }
-//           }
-//         });
-//       });
-//     });
-//   });
-
-//   function updateTasks(milestoneId, tasks, callback) {
-//     db.query(
-//       `SELECT taskid, taskname, description, assignedto, startdate, enddate FROM tasks WHERE milestoneid = ?`,
-//       [milestoneId],
-//       (err, existingTasks) => {
-//         if (err) return callback(err);
-//         console.log('Fetched existing tasks for milestone', milestoneId, ':', existingTasks);
-
-//         if (!Array.isArray(existingTasks)) {
-//           return callback(new Error('Expected an array of existing tasks'));
-//         }
-
-//         const existingTaskMap = new Map(existingTasks.map(t => [t.taskid, t]));
-//         const newTaskIDs = new Set();
-
-//         const processTask = (task, taskCallback) => {
-//           console.log('MYTASK: ',task);
-//           getIdByEmail(task.assignedTo, (err, assignedUserId) => {
-//             if (err) return taskCallback(err);
-//             if (task.taskid && task.taskid !== 'New') {
-//               // Update existing task
-//               newTaskIDs.add(task.taskid);
-//               console.log('Updating task:', task.taskid);
-//               db.query(
-//                 `UPDATE tasks SET taskname = ?, description = ?, assignedto = ?, startdate = ?, enddate = ? WHERE taskid = ?`,
-//                 [task.name, task.description, assignedUserId, task.startDate, task.endDate, task.taskid],
-//                 taskCallback
-//               );
-//             } else {
-//               // Insert new task
-//               console.log('Inserting new task:', task.name);
-//               db.query(
-//                 `INSERT INTO tasks (milestoneid, seq, taskname, description, assignedto, startdate, enddate, status) VALUES (?, NULL, ?, ?, ?, ?, ?, 'Not Started')`,
-//                 [milestoneId, task.name, task.description, assignedUserId, task.startDate, task.endDate],
-//                 taskCallback
-//               );
-//             }
-//           });
-//         };
-
-//         // Process each task
-//         let completedTasks = 0;
-//         tasks.forEach(task => {
-//           processTask(task, (err) => {
-//             if (err) return callback(err);
-//             completedTasks++;
-//             if (completedTasks === tasks.length) {
-//               const tasksToDelete = Array.from(existingTaskMap.keys()).filter(id => !newTaskIDs.has(id));
-//               if (tasksToDelete.length > 0) {
-//                 console.log('Deleting tasks:', tasksToDelete);
-//                 db.query(`DELETE FROM tasks WHERE taskid IN (?)`, [tasksToDelete], callback);
-//               } else {
-//                 callback();
-//               }
-//             }
-//           });
-//         });
-//       }
-//     );
-//   }
-
-//   function insertTasks(milestoneId, tasks, callback) {
-//     let completedTasks = 0;
-//     tasks.forEach(task => {
-//       getIdByEmail(task.assignedTo, (err, assignedUserId) => {
-//         if (err) return callback(err);
-//         console.log('Inserting task:', task.name, 'into milestone:', milestoneId);
-//         db.query(
-//           `INSERT INTO tasks (milestoneid, seq, taskname, description, assignedto, startdate, enddate, status) VALUES (?, NULL, ?, ?, ?, ?, ?, 'Not Started')`,
-//           [milestoneId, task.name, task.description, assignedUserId, task.startDate, task.endDate],
-//           (err) => {
-//             if (err) return callback(err);
-//             completedTasks++;
-//             if (completedTasks === tasks.length) {
-//               callback();
-//             }
-//           }
-//         );
-//       });
-//     });
-//   }
-
-//   function getIdByEmail(email, callback) {
-//     db.query(`SELECT userid FROM users WHERE email = ?`, [email], (err, result) => {
-//       if (err) return callback(err);
-//       if (result.length === 0) return callback(new Error('User not found'));
-//       callback(null, result[0].userid);
-//     });
-//   }
-// });
 
 app.post('/projects/new', (req, res) => {
   const { projectID, projectName, startDate, endDate, milestones } = req.body;
@@ -1554,6 +1106,21 @@ app.post('/forgotPassword', sendOTP);
 app.post('/verifyOtp', verifyOtp);
 app.post('/resetPassword', resetPassword);
 
+
+
+
+
+
+
+
+
+
+
+
+// *******************************************
+const authRoutes = require("./routes/authRoutes.js");
+
+app.use("/api", authRoutes);
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
